@@ -13,6 +13,7 @@ class TimeDisplay(Digits):
     start_time = reactive(monotonic)
     time = reactive(0.0)
     total = reactive(0.0)
+    is_running = False
 
     def on_mount(self) -> None:
         """Event handler called when widget is added to the app."""
@@ -30,14 +31,20 @@ class TimeDisplay(Digits):
 
     def start(self) -> None:
         """Method to start (or resume) time updating."""
+        if self.is_running:
+            return
         self.start_time = monotonic()
         self.update_timer.resume()
+        self.is_running = True
 
     def stop(self) -> None:
         """Method to stop the time display updating."""
+        if not self.is_running:
+            return
         self.update_timer.pause()
         self.total += monotonic() - self.start_time
         self.time = self.total
+        self.is_running = False
 
     def reset(self) -> None:
         """Method to reset the time display to zero."""
@@ -109,7 +116,10 @@ class StopwatchApp(App):
     BINDINGS = [
         ("d", "toggle_dark", "Toggle dark mode"),
         ("a", "add_stopwatch", "Add"),
-        ("r", "remove_stopwatch", "Remove"),
+        ("x", "remove_stopwatch", "Remove"),
+        ("space", "play_all", "Start All"),
+        ("s", "stop_all", "Stop All"),
+        ("r", "restart_all", "Reset All"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -145,6 +155,27 @@ class StopwatchApp(App):
         if timers:
             timers.last().remove()
 
+
+    def action_play_all(self) -> None:
+        """Start all stopwatches."""
+        for stopwatch in self.query("Stopwatch"):
+            time_display = stopwatch.query_one(TimeDisplay)
+            time_display.start()
+            stopwatch.add_class("started")
+
+    def action_stop_all(self) -> None:
+        """Stop all stopwatches."""
+        for stopwatch in self.query("Stopwatch"):
+            time_display = stopwatch.query_one(TimeDisplay)
+            time_display.stop()
+            stopwatch.remove_class("started")
+
+    def action_restart_all(self) -> None:
+        """Restart all stopwatches."""
+        self.action_stop_all()
+        for stopwatch in self.query("Stopwatch"):
+            time_display = stopwatch.query_one(TimeDisplay)
+            time_display.reset()
 
 if __name__ == "__main__":
     app = StopwatchApp()
