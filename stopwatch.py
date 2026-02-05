@@ -1,9 +1,10 @@
 from time import monotonic
 
 from textual.app import App, ComposeResult
-from textual.containers import HorizontalGroup, VerticalScroll
+from textual.containers import Container, Grid, HorizontalGroup, VerticalScroll
 from textual.reactive import reactive
-from textual.widgets import Button, Digits, Footer, Header
+from textual.screen import ModalScreen
+from textual.widgets import Button, Digits, Footer, Header, Input, Label, Static
 
 
 class TimeDisplay(Digits):
@@ -44,8 +45,12 @@ class TimeDisplay(Digits):
         self.time = 0
 
 
-class Stopwatch(HorizontalGroup):
+class Stopwatch(Container):
     """A stopwatch widget."""
+
+    def __init__(self, name: str = "Stopwatch", **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.stopwatch_name = name
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Event handler called when a button is pressed."""
@@ -62,10 +67,39 @@ class Stopwatch(HorizontalGroup):
 
     def compose(self) -> ComposeResult:
         """Create child widgets of a stopwatch."""
-        yield Button("Start", id="start", variant="success")
-        yield Button("Stop", id="stop", variant="error")
-        yield Button("Reset", id="reset")
-        yield TimeDisplay()
+        yield Static(self.stopwatch_name, classes="stopwatch-name")
+        with HorizontalGroup(classes="stopwatch-controls"):
+            yield Button("Start", id="start", variant="success")
+            yield Button("Stop", id="stop", variant="error")
+            yield Button("Reset", id="reset")
+            yield TimeDisplay()
+
+
+class NameInputScreen(ModalScreen[str]):
+    """Screen for entering a stopwatch name."""
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Enter stopwatch name:", id="question"),
+            Input(placeholder="e.g., Sprint, Break, Task", id="name-input"),
+            Button("Create", variant="primary", id="create"),
+            Button("Cancel", variant="default", id="cancel"),
+            id="dialog",
+        )
+
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "create":
+            name = self.query_one(Input).value.strip()
+            self.dismiss(name if name else "Stopwatch")
+        else:
+            self.dismiss(None)
+
+    def on_input_submitted(self) -> None:
+        name = self.query_one(Input).value.strip()
+        self.dismiss(name if name else "Stopwatch")
 
 
 class StopwatchApp(App):
@@ -82,7 +116,11 @@ class StopwatchApp(App):
         """Called to add widgets to the app."""
         yield Header()
         yield Footer()
-        yield VerticalScroll(Stopwatch(), id="timers")
+        yield VerticalScroll(id="timers")
+
+    def on_mount(self) -> None:
+        """Called when app is mounted."""
+        self.action_add_stopwatch()
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
@@ -92,9 +130,14 @@ class StopwatchApp(App):
 
     def action_add_stopwatch(self) -> None:
         """An action to add a timer."""
-        new_stopwatch = Stopwatch()
-        self.query_one("#timers").mount(new_stopwatch)
-        new_stopwatch.scroll_visible()
+        self.push_screen(NameInputScreen(), self.create_stopwatch)
+
+    def create_stopwatch(self, name: str | None) -> None:
+        """Create a new stopwatch with the given name."""
+        if name is not None:
+            new_stopwatch = Stopwatch(name)
+            self.query_one("#timers").mount(new_stopwatch)
+            new_stopwatch.scroll_visible()
 
     def action_remove_stopwatch(self) -> None:
         """Called to remove a timer."""
