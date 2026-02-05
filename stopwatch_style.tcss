@@ -3,6 +3,8 @@ Stopwatch {
     height: 5;
     margin: 1;
     min-width: 50;
+    max-width: 80;
+    width: 100%;
     padding: 1;
 }
 
@@ -48,4 +50,8 @@ Button {
 
 .started #reset {
     visibility: hidden
+}
+
+#timers {
+    align: center middle;
 }
